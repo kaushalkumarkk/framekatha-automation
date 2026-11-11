@@ -1,4 +1,5 @@
 .venv/
+.resolve-venv/
 .env
 .env.*
 !.env.example

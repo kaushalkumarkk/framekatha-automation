@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from api.auth import require_api_key
 from api.routes.feedback import router as feedback_router
+from api.routes.invoices import router as invoices_router
 from api.routes.leads import router
 from api.routes.scrapers import router as scrapers_router
 from api.routes.scripts import router as scripts_router
@@ -34,6 +35,7 @@ app.include_router(scrapers_router)
 app.include_router(studio_router)
 app.include_router(scripts_router)
 app.include_router(feedback_router)
+app.include_router(invoices_router)
 logger = logging.getLogger(__name__)
 
 

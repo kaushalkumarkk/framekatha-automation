@@ -40,6 +40,7 @@ class Project(Base):
     call_time: Mapped[str | None] = mapped_column(String(5))
     cinematographer: Mapped[str | None] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(30), default="planning")
+    work_paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

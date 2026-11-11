@@ -1,4 +1,5 @@
 from core.models.feedback import FeedbackReview
+from core.models.invoice import Invoice, SuspensionNotice
 from core.models.leads import DeadLetter, Lead, LeadIdentity, LeadSource, OutreachLog
 from core.models.scraper import ScraperRun
 from core.models.script import ScriptVersion
@@ -17,4 +18,6 @@ __all__ = [
     "TalentSelection",
     "ScriptVersion",
     "FeedbackReview",
+    "Invoice",
+    "SuspensionNotice",
 ]

@@ -19,6 +19,11 @@ def test_migration_upgrade_and_downgrade(engine):
     config.attributes["migration_schema"] = schema
     with engine.connect().execution_options(schema_translate_map={None: schema}) as connection:
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        # Alembic ALTER TABLE operations do not use schema_translate_map.
+        # Set the search path too, so add/drop-column DDL stays isolated.
+        connection.execute(
+            text("SELECT set_config('search_path', :schema, false)"), {"schema": schema}
+        )
         connection.commit()
         config.attributes["connection"] = connection
         try:
@@ -31,4 +36,5 @@ def test_migration_upgrade_and_downgrade(engine):
         finally:
             connection.rollback()
             connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+            connection.execute(text("RESET search_path"))
             connection.commit()
