@@ -1,5 +1,16 @@
 # Frame Katha Studio automation
 
+Phase 2: public-source scraper adapters are available via `python -m scrapers CHANNEL`
+or `POST /scrapers/runs`. Channels: `maps` (permitted business listings), `magicbricks`,
+`acres99`, and `radar`. Configure source URLs and Kolkata locations in
+`scrapers/locations.yaml`. Install Chromium with `playwright install chromium`.
+Background runs require local Redis and `rq worker --with-scheduler scrapers leads`.
+Use `--enqueue` or `--scheduled-at ISO_TIME` for queued/scheduled CLI runs.
+Social and Upwork/LinkedIn adapters are disabled stubs. Property adapters require
+explicit owner evidence and a recent publication date; missing evidence is skipped.
+News radar requires `NEWS_API_KEY` and `ANTHROPIC_API_KEY` and sends article excerpts
+to Claude for classification. No scraping is run automatically on startup.
+
 Standalone Python backend for Frame Katha Studio. **Phase 1 is implemented:** API-key
 authentication, lead ingestion and deduplication, source provenance, opt-outs, audit
 records, PostgreSQL migrations, and retry/dead-letter handling. Later phase folders

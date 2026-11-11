@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     ingest_max_attempts: int = Field(default=3, ge=1, le=10)
     retry_base_seconds: float = Field(default=0.25, ge=0, le=10)
     log_level: str = "INFO"
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = "claude-sonnet-4-5"
+    google_places_api_key: SecretStr | None = None
+    news_api_key: SecretStr | None = None
+    scraper_delay_seconds: float = Field(default=3, ge=1, le=300)
+    scraper_proxy: SecretStr | None = None
+    scraper_config: str = "scrapers/locations.yaml"
+    browser_session_hours: int = Field(default=8, ge=1, le=24)
 
     @field_validator("api_key")
     @classmethod

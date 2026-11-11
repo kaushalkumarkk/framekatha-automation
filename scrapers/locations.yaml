@@ -1,0 +1,23 @@
+locations:
+  - Newtown
+  - Rajarhat
+  - Ballygunge
+  - Jadavpur
+  - Garia
+  - Dhakuria
+  - Park Street
+  - Barrackpore
+  - Kalyani
+  - Barasat
+  - Madhyamgram
+city: Kolkata
+categories: [restaurants, clinics, real estate developers, boutiques]
+business_listing_urls: []
+# Example placeholders available: {location}, {category}; configure permitted directories.
+business_listing_url_templates: []
+# Public URLs only. Verify platform permission before configuring a source.
+property_urls:
+  magicbricks: []
+  acres99: []
+property_max_age_days: 7
+max_pages: 3

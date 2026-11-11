@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from api.auth import require_api_key
 from api.routes.leads import router
+from api.routes.scrapers import router as scrapers_router
 from core.config import get_settings
 from core.db import get_session_factory
 from core.logging import configure_logging, request_id_context
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Frame Katha Studio Automation", version="0.1.0", lifespan=lifespan)
 app.include_router(router)
+app.include_router(scrapers_router)
 logger = logging.getLogger(__name__)
 
 

@@ -6,6 +6,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect, text
 
+from core.db import Base
+
 
 @pytest.mark.postgres
 def test_migration_upgrade_and_downgrade(engine):
@@ -22,14 +24,7 @@ def test_migration_upgrade_and_downgrade(engine):
         try:
             command.upgrade(config, "head")
             tables = set(inspect(connection).get_table_names(schema=schema))
-            assert tables == {
-                "leads",
-                "lead_identities",
-                "lead_sources",
-                "outreach_logs",
-                "dead_letters",
-                "alembic_version",
-            }
+            assert tables == set(Base.metadata.tables) | {"alembic_version"}
             connection.commit()
             command.downgrade(config, "base")
             assert inspect(connection).get_table_names(schema=schema) == ["alembic_version"]
