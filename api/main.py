@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from api.auth import require_api_key
 from api.routes.leads import router
 from api.routes.scrapers import router as scrapers_router
+from api.routes.scripts import router as scripts_router
 from api.routes.studio import router as studio_router
 from core.config import get_settings
 from core.db import get_session_factory
@@ -30,6 +31,7 @@ app = FastAPI(title="Frame Katha Studio Automation", version="0.1.0", lifespan=l
 app.include_router(router)
 app.include_router(scrapers_router)
 app.include_router(studio_router)
+app.include_router(scripts_router)
 logger = logging.getLogger(__name__)
 
 
