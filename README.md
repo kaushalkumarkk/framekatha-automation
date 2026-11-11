@@ -11,10 +11,22 @@ explicit owner evidence and a recent publication date; missing evidence is skipp
 News radar requires `NEWS_API_KEY` and `ANTHROPIC_API_KEY` and sends article excerpts
 to Claude for classification. No scraping is run automatically on startup.
 
-Standalone Python backend for Frame Katha Studio. **Phase 1 is implemented:** API-key
-authentication, lead ingestion and deduplication, source provenance, opt-outs, audit
-records, PostgreSQL migrations, and retry/dead-letter handling. Later phase folders
-are placeholders. No website code, platform scraping, messaging, or AI calls run here.
+Standalone studio operations app with a FastAPI backend and a responsive browser
+dashboard. **All six phases are implemented and have automated tests**:
+
+| Phase | Implementation |
+| --- | --- |
+| 1 | Lead ingestion, deduplication, provenance, status and opt-outs |
+| 2 | Permitted public business/property listings, podcast radar, scheduled scraper runs |
+| 3 | Talent A/B, skills/fee/availability matching, non-binding negotiation, client approvals, PDF call sheets |
+| 4 | Validated, versioned Claude shooting scripts, screenplay, edit direction and BGM suggestions |
+| 5 | Separate Resolve workstation package: ingestion, Whisper, rough assemblies and review-only edit feedback |
+| 6 | Invoice milestones, project pause flags, draft suspension notices and human resumption |
+
+The app starts empty: no sample records or fake provider outputs are inserted.
+See [workflow setup and limits](docs/workflows.md), [n8n contracts](docs/n8n.md), and
+the [Resolve workstation guide](resolve/README.md). Live providers, source access,
+and real Resolve Studio execution require your environment-specific configuration.
 
 Development uses a **local PostgreSQL database, without Docker**. Redis is optional
 for the synchronous HTTP API and required only when running background RQ jobs.
@@ -50,6 +62,13 @@ Interactive API docs: `http://127.0.0.1:8000/docs`. Use **Authorize** to enter y
 key; protected endpoints accept it in the `X-API-Key` header.
 The API does not create tables at startup: run Alembic before serving requests.
 
+Open **http://127.0.0.1:8000/** for the dashboard. Sign in using `API_KEY` from your
+local `.env`. It issues an expiring HttpOnly, SameSite=Strict session cookie; the key
+is never saved in browser storage. `APP_ENV=production` makes cookies HTTPS-only.
+Use a consistent hostname (`localhost` or `127.0.0.1`) during the session. Rotating
+the API key invalidates sessions. The buildless frontend is served by FastAPI and
+needs no Node server, npm installation, or separate frontend build.
+
 ### Use an existing local PostgreSQL installation
 
 Install application dependencies with `uv pip install -e '.[dev]'`. Create separate
@@ -81,13 +100,23 @@ by the bundled-server helper. Set its URLs yourself if switching database server
 | `RETRY_BASE_SECONDS` | Exponential backoff base; `0.25` |
 | `LOG_LEVEL` | JSON log level; `INFO` |
 | `APP_ENV` | Environment label; `development` |
+| `BROWSER_SESSION_HOURS` | Browser session lifetime, 1–24; `8` |
+| `ANTHROPIC_API_KEY` | Required for scripts, negotiation, edit parsing and radar |
+| `ANTHROPIC_MODEL` | Claude model ID; default `claude-sonnet-4-5`, configurable for your account |
+| `NEWS_API_KEY` | News API credential for podcast radar |
+| `SCRAPER_CONFIG` | Configuration file; `scrapers/locations.yaml` |
+| `SCRAPER_DELAY_SECONDS` | Minimum delay, at least 1 second; `3` |
+| `SCRAPER_PROXY` | Optional Playwright proxy URL; access restrictions still apply |
 
-Secrets and local data are gitignored. Anthropic, scraper, and messaging credentials
-will be introduced only with their corresponding phases. Production PostgreSQL
+Secrets and local data are gitignored. Set provider keys in `.env` and restart the API
+and workers. Messaging stays in n8n; this service does not need messaging credentials.
+Production PostgreSQL
 connections can use Supabase's connection URL with `postgresql+psycopg://` and TLS
 options; use a migration-capable connection for Alembic. Never expose this service
 publicly without HTTPS and network access controls. The API key grants backend-wide
-access; this is an n8n service API, not browser authentication or a multi-tenant API.
+access. Browser sessions share that studio authority. There are no individual user
+accounts, public client logins, or multi-tenant isolation. Approval records capture
+a human decision; they do not verify a client's legal identity.
 
 ## n8n HTTP integration
 
@@ -195,8 +224,9 @@ FROM dead_letters WHERE status = 'pending' ORDER BY created_at;
 
 Review the stored payload under appropriate access controls, correct the source data,
 and resubmit through the ingest endpoint. After resolving the issue, an operator can
-mark the row `resolved` and set `resolved_at` in SQL. A review UI and master-merging UI
-are outside Phase 1. If PostgreSQL itself is unavailable, it cannot store a dead letter;
+mark the row `resolved` and set `resolved_at` in SQL. The dashboard lists safe failure
+summaries and can mark them resolved. Private payload inspection and master merging
+remain operator tasks. If PostgreSQL itself is unavailable, it cannot store a dead letter;
 the service emits `dead_letter_storage_unavailable` and returns 503. n8n must retain
 the event, or RQ retains the failed job, for recovery.
 
@@ -219,6 +249,21 @@ phone/name ingestion, and migration upgrade/downgrade. With no `TEST_DATABASE_UR
 unit/API tests fall back to in-memory SQLite; PostgreSQL-specific tests are skipped.
 PostgreSQL tests are the acceptance check for concurrency and migrations.
 
+Additional tests cover talent matching, proposal limits, approval gates, PDFs, script
+versions, footage ledgers, assembly/render SDK calls, feedback review, invoice
+milestones and browser sessions. Run browser workflows with:
+
+```sh
+python -m scripts.browser_qa
+```
+
+The Chromium check uses an isolated PostgreSQL schema and deterministic AI fixtures;
+no development records or paid calls are created. It exercises forms, casting, PDF
+downloads, scripts, feedback and invoicing, checks JavaScript errors and responsive
+overflow, and saves ignored desktop/mobile screenshots in `.local/`. The temporary
+server and schema are removed afterward. Real Whisper/Resolve, live property markup,
+Redis workers and paid providers still need environment-specific verification.
+
 ## Logging and workflow boundaries
 
 JSON logs include request IDs, event names, lead IDs, outcomes, and retry attempts.
@@ -229,5 +274,6 @@ contact data by design: restrict database access and retention. Run Uvicorn with
 
 n8n must check `opted_out` immediately before outreach. WhatsApp must use approved
 templates through an official provider. No bulk cold-DM automation or login-based
-scraping is implemented. Future Resolve automation will produce a rough assembly for
-a human editor; edit feedback and suspension notices will require human review.
+scraping is implemented. Resolve produces a rough assembly for a human editor;
+feedback and suspension notices require human review. Approved feedback is never
+auto-applied. No messages, notices, emails, or DMs are sent by this service.

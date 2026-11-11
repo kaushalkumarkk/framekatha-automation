@@ -42,9 +42,13 @@ def generate_json(prompt: str, data: dict, schema: type[T], operation: str) -> T
             )
             response.raise_for_status()
             body = response.json()
+            if not isinstance(body, dict) or not isinstance(body.get("content"), list):
+                raise ValueError("Provider returned an invalid message")
             for block in body.get("content", []):
+                if not isinstance(block, dict):
+                    continue
                 if block.get("type") == "tool_use" and block.get("name") == "submit_result":
-                    return schema.model_validate(block["input"])
+                    return schema.model_validate(block.get("input", {}))
             raise ValueError("Provider returned no structured result")
 
     return call_provider(operation, request)

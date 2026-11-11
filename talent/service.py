@@ -1,4 +1,5 @@
 from decimal import Decimal
+from importlib.resources import files
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -11,7 +12,7 @@ from leads.dedup import lock_ingestion
 from leads.normalization import normalize_email, normalize_phone
 
 
-def import_talent(db, payload: TalentInput, region: str):
+def import_talent(db, payload: TalentInput, region: str, existing_id: UUID | None = None):
     data = payload.model_dump(mode="json")
     data["fee_rate"] = payload.fee_rate
     data["email"] = normalize_email(str(payload.email)) if payload.email else None
@@ -28,10 +29,15 @@ def import_talent(db, payload: TalentInput, region: str):
     matches = list(db.scalars(select(Talent).where(or_(*predicates))))
     if len(matches) > 1:
         raise HTTPException(409, "Contact identities belong to different talent records")
-    talent = matches[0] if matches else Talent()
+    if existing_id:
+        if any(match.id != existing_id for match in matches):
+            raise HTTPException(409, "Contact identity belongs to another talent record")
+        talent = entity(db, Talent, existing_id)
+    else:
+        talent = matches[0] if matches else Talent()
     for key, value in data.items():
         # Re-imports may update skills, availability and fees, but do not erase contacts.
-        if key in {"email", "phone", "portfolio_url"} and value is None:
+        if key in {"email", "phone", "portfolio_url"} and value is None and not existing_id:
             continue
         setattr(talent, key, value)
     talent.has_portfolio = bool(talent.portfolio_url)
@@ -74,9 +80,7 @@ def negotiate(db, talent: Talent, project: Project, payload: NegotiateInput):
     if talent.currency != project.currency:
         raise HTTPException(409, "Talent and project currencies differ")
     result = generate_json(
-        "You assist a studio negotiating an actor/model fee. Propose an amount within "
-        "the project's inclusive minimum and maximum. Never confirm, accept or bind a fee. "
-        "Return only a fee proposal and rationale for human review; no outgoing message.",
+        files("ai").joinpath("prompts/negotiation.v1.txt").read_text(),
         {
             "talent_name": talent.name,
             "listed_fee": str(talent.fee_rate),

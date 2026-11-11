@@ -1,3 +1,6 @@
+import hashlib
+from importlib.resources import files
+
 from pydantic import BaseModel, Field
 
 from ai.client import generate_json
@@ -32,8 +35,7 @@ class RadarScraper(BaseScraper):
         results = []
         for article in data.get("articles", []):
             result = generate_json(
-                "Classify evidence of a newly launched podcast by a notable person. "
-                "Reject rumours, existing shows and unsupported claims. Explain the evidence.",
+                files("ai").joinpath("prompts/radar.v1.txt").read_text(),
                 {"title": article.get("title"), "description": article.get("description")},
                 RadarClassification,
                 "podcast_radar",
@@ -43,7 +45,7 @@ class RadarScraper(BaseScraper):
                     LeadIngest(
                         business_name=result.person,
                         channel=self.channel,
-                        external_id=article["url"],
+                        external_id=hashlib.sha256(article["url"].encode()).hexdigest(),
                         source_url=article["url"],
                         metadata={
                             "classification": result.model_dump(),

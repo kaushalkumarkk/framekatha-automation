@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     anthropic_api_key: SecretStr | None = None
     anthropic_model: str = "claude-sonnet-4-5"
-    google_places_api_key: SecretStr | None = None
     news_api_key: SecretStr | None = None
     scraper_delay_seconds: float = Field(default=3, ge=1, le=300)
     scraper_proxy: SecretStr | None = None

@@ -44,6 +44,35 @@ def project_detail(project_id: UUID, db: DB):
     return entity(db, Project, project_id)
 
 
+@router.put("/projects/{project_id}")
+def update_project(project_id: UUID, payload: ProjectInput, db: DB):
+    project = db.get(Project, project_id, with_for_update=True)
+    if project is None:
+        raise HTTPException(404, "Project not found")
+    submitted = db.scalar(
+        select(TalentSelection.id).where(
+            TalentSelection.project_id == project_id,
+            TalentSelection.status.in_(["sent", "approved", "rejected"]),
+        )
+    )
+    sensitive = ("min_fee", "max_fee", "currency", "shoot_date", "client_name", "client_email")
+    if submitted and any(getattr(project, name) != getattr(payload, name) for name in sensitive):
+        raise HTTPException(
+            409, "Submitted casting fixes the client, fee range, currency and shoot date"
+        )
+    fees = db.scalars(
+        select(TalentSelection.proposed_fee).where(
+            TalentSelection.project_id == project_id,
+        )
+    )
+    if any(not payload.min_fee <= fee <= payload.max_fee for fee in fees):
+        raise HTTPException(409, "Existing selections fall outside the new fee range")
+    for name, value in payload.model_dump().items():
+        setattr(project, name, value)
+    db.commit()
+    return project
+
+
 @router.post("/talent/import")
 def add_talent(payload: TalentInput, db: DB, settings: Annotated[Settings, Depends(get_settings)]):
     talent = import_talent(db, payload, settings.default_phone_region)
@@ -64,6 +93,19 @@ def talents(db: DB, database: str | None = None):
 @router.get("/talent/{talent_id}")
 def talent_detail(talent_id: UUID, db: DB):
     return entity(db, Talent, talent_id)
+
+
+@router.put("/talent/{talent_id}")
+def edit_talent(
+    talent_id: UUID,
+    payload: TalentInput,
+    db: DB,
+    settings: Annotated[Settings, Depends(get_settings)],
+):
+    entity(db, Talent, talent_id)
+    talent = import_talent(db, payload, settings.default_phone_region, existing_id=talent_id)
+    db.commit()
+    return talent
 
 
 @router.post("/talent/{talent_id}/negotiate")

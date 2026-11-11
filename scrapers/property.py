@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
 from api.schemas.leads import LeadIngest
+from core.external import ConfigurationRequired
 from scrapers.base import BaseScraper, ScrapingBlocked
 from scrapers.structured import jsonld_records
 
@@ -14,7 +15,10 @@ class PropertyScraper(BaseScraper):
     def collect(self, config: dict) -> list[LeadIngest]:
         results = []
         cutoff = datetime.now(UTC) - timedelta(days=config.get("property_max_age_days", 7))
-        for url in config.get("property_urls", {}).get(self.source_name, []):
+        urls = config.get("property_urls", {}).get(self.source_name, [])
+        if not urls:
+            raise ConfigurationRequired(f"property_urls.{self.source_name} in the scraper YAML")
+        for url in urls:
             host = urlsplit(url).hostname or ""
             if host != self.domain and not host.endswith("." + self.domain):
                 raise ScrapingBlocked("URL does not belong to the configured property source")

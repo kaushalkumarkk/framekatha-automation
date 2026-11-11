@@ -1,11 +1,14 @@
 import logging
+import time
 from contextlib import asynccontextmanager
+from importlib.resources import files
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -17,6 +20,7 @@ from api.routes.leads import router
 from api.routes.scrapers import router as scrapers_router
 from api.routes.scripts import router as scripts_router
 from api.routes.studio import router as studio_router
+from api.routes.workspace import router as workspace_router
 from core.config import get_settings
 from core.db import get_session_factory
 from core.external import ConfigurationRequired, ProviderUnavailable
@@ -36,6 +40,17 @@ app.include_router(studio_router)
 app.include_router(scripts_router)
 app.include_router(feedback_router)
 app.include_router(invoices_router)
+app.include_router(workspace_router)
+app.mount(
+    "/assets", StaticFiles(directory=str(files("frontend").joinpath("assets"))), name="assets"
+)
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    return FileResponse(str(files("frontend").joinpath("index.html")))
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,14 +68,27 @@ async def provider_unavailable(request: Request, exc: ProviderUnavailable):
 async def request_logging(request: Request, call_next):
     request_id = str(uuid4())
     token = request_id_context.set(request_id)
+    started = time.monotonic()
     try:
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "same-origin"
+        if not request.url.path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "no-store"
+        if request.url.path == "/":
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+                "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+            )
         logger.info(
             "http_request_completed",
             extra={
                 "method": request.method,
                 "status_code": response.status_code,
+                "route": getattr(request.scope.get("route"), "path", "static"),
+                "duration_ms": round((time.monotonic() - started) * 1000),
             },
         )
         return response

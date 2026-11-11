@@ -1,13 +1,13 @@
 from bs4 import BeautifulSoup
 
 from api.schemas.leads import LeadIngest
+from core.external import ConfigurationRequired
 from scrapers.base import BaseScraper
 
 
 class MapsScraper(BaseScraper):
     """Public business-listing pages; Google Maps UI is intentionally not scraped.
 
-    Google place IDs can be imported from a separately licensed Places API workflow.
     Public listing adapters use Schema.org LocalBusiness records and website SEO signals.
     """
 
@@ -46,7 +46,9 @@ class MapsScraper(BaseScraper):
             for location in config.get("locations", []):
                 for category in config.get("categories", []):
                     urls.append(template.format(location=quote(location), category=quote(category)))
-        for url in urls:
+        if not urls:
+            raise ConfigurationRequired("business_listing_urls in the scraper YAML")
+        for url in dict.fromkeys(urls):
             html = self.page_html(url)
             for item in jsonld_records(html):
                 kinds = item.get("@type", [])
