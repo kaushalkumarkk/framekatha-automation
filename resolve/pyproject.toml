@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "framekatha-resolve"
+version = "0.1.0"
+description = "Local rough assembly tools for DaVinci Resolve Studio"
+requires-python = ">=3.11"
+dependencies = ["rapidfuzz>=3,<4", "httpx>=0.28,<1"]
+
+[project.optional-dependencies]
+transcription = ["faster-whisper>=1,<2"]
+
+[project.scripts]
+framekatha-resolve = "resolve.__main__:main"
+
+[tool.setuptools]
+packages = ["resolve"]
+package-dir = {"resolve" = "."}
