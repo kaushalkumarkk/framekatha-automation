@@ -1,13 +1,26 @@
+from typing import Literal
+
 from pydantic import Field, model_validator
 
 from api.schemas.leads import StrictInput
 
 
-class ScriptRequest(StrictInput):
-    requirement: str | None = Field(default=None, min_length=1, max_length=20000)
+class ScriptPattern(StrictInput):
     language: str = Field(default="English", min_length=1, max_length=80)
     duration_seconds: int = Field(default=30, ge=5, le=600)
     tone: str = Field(default="Cinematic and warm", min_length=1, max_length=300)
+    topic: str | None = Field(default=None, min_length=1, max_length=1000)
+    content_type: str | None = Field(default=None, min_length=1, max_length=300)
+    character_count: int | None = Field(default=None, ge=0, le=100)
+    shoot_setting: Literal["indoor", "outdoor", "mixed"] | None = None
+    location_description: str | None = Field(default=None, min_length=1, max_length=2000)
+    pattern_instructions: str | None = Field(default=None, min_length=1, max_length=5000)
+    customer_challenges: str | None = Field(default=None, min_length=1, max_length=5000)
+    agreement_notes: str | None = Field(default=None, min_length=1, max_length=5000)
+
+
+class ScriptRequest(ScriptPattern):
+    requirement: str | None = Field(default=None, min_length=1, max_length=20000)
 
 
 class Shot(StrictInput):

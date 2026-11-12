@@ -139,3 +139,42 @@ def test_feedback_is_review_only_even_after_approval(client, monkeypatch):
     assert approved.status_code == 200
     assert not approved.json()["applied"]
     assert approved.json()["review"]["status"] == "approved"
+
+
+def test_dialogue_matches_consecutive_segments_without_cutting_words(tmp_path):
+    script = sample_script().model_dump()
+    script["shooting_script"][0].update(
+        dialogue="Welcome to our studio a new beginning", duration_seconds=2
+    )
+    transcript = {
+        "media_path": str(tmp_path / "clip.mov"),
+        "segments": [
+            {"start": 0, "end": 2, "text": "Welcome to our studio"},
+            {"start": 2.2, "end": 5, "text": "A new beginning!"},
+        ],
+    }
+    result = build_plan(script, [transcript])
+    assert result["clips"][0]["match_score"] == 100
+    assert result["clips"][0]["end_seconds"] == 5
+    assert result["duration_seconds"] == 5
+    assert result["warnings"][0]["scene_id"] == "scene-1"
+    # The same dialogue cannot reuse the selected media range in another shot.
+    script["shooting_script"].append(script["shooting_script"][0].copy())
+    result = build_plan(script, [transcript])
+    assert len(result["clips"]) == 1 and len(result["unmatched_shots"]) == 1
+
+
+def test_matching_does_not_bridge_separate_takes_or_invalid_ranges(tmp_path):
+    script = sample_script().model_dump()
+    script["shooting_script"][0]["dialogue"] = "Welcome to our studio a new beginning"
+    transcript = {
+        "media_path": str(tmp_path / "clip.mov"),
+        "segments": [
+            {"start": 0, "end": 2, "text": "Welcome to our studio"},
+            {"start": 8, "end": 10, "text": "A new beginning"},
+            {"start": 12, "end": float("inf"), "text": "Welcome to our studio a new beginning"},
+        ],
+    }
+    result = build_plan(script, [transcript], threshold=95)
+    assert not result["clips"]
+    assert len(result["unmatched_shots"]) == 1

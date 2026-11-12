@@ -1,14 +1,26 @@
+import math
+import unicodedata
 from pathlib import Path
 
-from rapidfuzz.fuzz import WRatio
+from rapidfuzz.fuzz import ratio
+
+
+def normalized(text: str) -> str:
+    # Keep vowel signs and combining marks in Hindi, Bengali and other scripts.
+    cleaned = "".join(
+        c if unicodedata.category(c)[0] in {"L", "N", "M"} else " " for c in text.casefold()
+    )
+    return " ".join(cleaned.split())
 
 
 def build_plan(script: dict, transcripts: list[dict], threshold: float = 65) -> dict:
+    if not math.isfinite(threshold) or not 0 <= threshold <= 100:
+        raise ValueError("Match threshold must be between 0 and 100")
     document = script.get("output", script)
-    clips, unmatched, used = [], [], set()
+    clips, unmatched, used, warnings = [], [], {}, []
     cursor = 0.0
     for shot in document.get("shooting_script", []):
-        dialogue = str(shot.get("dialogue", "")).strip()
+        dialogue = normalized(str(shot.get("dialogue", "")))
         if not dialogue:
             unmatched.append(
                 {
@@ -19,33 +31,49 @@ def build_plan(script: dict, transcripts: list[dict], threshold: float = 65) -> 
             continue
         candidates = []
         for transcript in transcripts:
-            for index, segment in enumerate(transcript.get("segments", [])):
-                identity = (transcript["media_path"], index)
-                if identity in used:
-                    continue
-                score = WRatio(dialogue.casefold(), segment["text"].casefold())
-                if score >= threshold:
-                    candidates.append((score, identity, segment))
+            media = str(Path(transcript["media_path"]).resolve())
+            segments = transcript.get("segments", [])
+            for index in range(len(segments)):
+                words, start, previous_end = [], None, None
+                # A dialogue line may span several consecutive transcription segments.
+                for segment in segments[index : index + 8]:
+                    begin, end = float(segment["start"]), float(segment["end"])
+                    if not (math.isfinite(begin) and math.isfinite(end) and 0 <= begin < end):
+                        break
+                    if previous_end is not None and not 0 <= begin - previous_end <= 1.5:
+                        break
+                    start = begin if start is None else start
+                    if any(start < right and end > left for left, right in used.get(media, [])):
+                        break
+                    words.append(str(segment["text"]))
+                    previous_end = end
+                    text = " ".join(words)
+                    score = ratio(dialogue, normalized(text))
+                    if score >= threshold:
+                        candidates.append((score, media, start, end, text))
         if not candidates:
             unmatched.append({"scene_id": shot.get("scene_id"), "reason": "No transcript match"})
             continue
-        score, identity, segment = max(candidates, key=lambda row: row[0])
-        start, end = float(segment["start"]), float(segment["end"])
-        end = min(end, start + float(shot.get("duration_seconds", end - start)))
-        if start < 0 or end <= start:
-            unmatched.append(
-                {"scene_id": shot.get("scene_id"), "reason": "Invalid transcript range"}
+        score, media, start, end, text = max(candidates, key=lambda row: row[0])
+        used.setdefault(media, []).append((start, end))
+        # Preserve the entire spoken line; trimming to the target runtime can cut words.
+        if end - start > float(shot.get("duration_seconds", end - start)):
+            warnings.append(
+                {
+                    "scene_id": shot.get("scene_id"),
+                    "reason": "Dialogue exceeds planned shot duration; review pacing",
+                }
             )
-            continue
-        used.add(identity)
         clips.append(
             {
-                "media_path": str(Path(identity[0]).resolve()),
+                "media_path": media,
                 "scene_id": shot["scene_id"],
+                "shot_number": shot.get("shot_number"),
                 "start_seconds": start,
                 "end_seconds": end,
                 "record_seconds": cursor,
                 "match_score": score,
+                "matched_text": text,
             }
         )
         cursor += end - start
@@ -55,5 +83,6 @@ def build_plan(script: dict, transcripts: list[dict], threshold: float = 65) -> 
         "clips": clips,
         "duration_seconds": cursor,
         "unmatched_shots": unmatched,
+        "warnings": warnings,
         "requires_editor_review": True,
     }

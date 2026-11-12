@@ -88,6 +88,10 @@ by the bundled-server helper. Set its URLs yourself if switching database server
 
 ## Configuration
 
+Customer script patterns and imported scripts are described in
+[the script workflow guide](docs/script-patterns.md). After updating an existing
+installation, run `alembic upgrade head` before restarting the API.
+
 | Variable | Purpose / default |
 | --- | --- |
 | `API_KEY` | Required, at least 24 characters; shared with n8n through its credentials store |

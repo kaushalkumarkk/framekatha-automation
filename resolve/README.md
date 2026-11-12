@@ -35,8 +35,11 @@ then appears with `status='dead_letter'` in `work/ingest.sqlite3`. Error codes a
 stored without exception text. Correct the file or reset its attempts/status in the
 local ledger to retry. Do not run two watcher processes against the same output.
 
-The planner matches spoken dialogue to transcript segments and orders them by the
-script. Unmatched and visual-only shots remain listed for manual selection. Inspect
+The planner matches full dialogue lines across up to eight consecutive transcript
+segments (with gaps up to 1.5 seconds) and orders them by the script. It preserves
+the full dialogue instead of cutting it to the planned duration, reports pacing
+warnings, and prevents overlapping source ranges from being reused. Unmatched and
+visual-only shots remain listed for manual selection. Inspect
 `plan.json` before assembly. `assemble` creates a **new** timeline, applies an optional
 LUT on node 1 and/or a `.drx` colour preset, adds the chosen licensed music track on
 audio track 2, and optionally queues a render. It **never starts rendering**. Match

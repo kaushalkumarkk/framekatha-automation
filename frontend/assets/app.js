@@ -376,7 +376,9 @@ async function projectDetail(id) {
     panel(
       "Production script",
       script,
-      latest ? button("New version", "generate-script", id, "small") : "",
+      button("Customer pattern", "script-pattern", id, "small") +
+        button("Import script", "import-script", id, "small") +
+        (latest ? button("New version", "generate-script", id, "small") : ""),
     )
   );
 }
@@ -1000,20 +1002,21 @@ const actions = {
     ),
   "lead-next": () => leadPage(50),
   "lead-prev": () => leadPage(-50),
-  "generate-script": (id) =>
+  "generate-script": async (id) => {
+    const pattern = await api(`/projects/${id}/script-pattern`);
     showModal(
       "From brief to first draft.",
       form(
         row(
-          field("Dialogue language", "language", { value: "English" }),
+          field("Dialogue language", "language", { value: pattern.language }),
           field("Runtime in seconds", "duration_seconds", {
             type: "number",
             min: 5,
             max: 600,
-            value: 30,
+            value: pattern.duration_seconds,
           }),
         ) +
-          field("Creative tone", "tone", { value: "Cinematic and warm" }) +
+          field("Creative tone", "tone", { value: pattern.tone }) +
           area(
             "Optional brief override",
             "requirement",
@@ -1021,13 +1024,48 @@ const actions = {
             false,
           ),
         "Generate draft",
-        "Uses Claude. The structured draft is saved as a new version and needs creative review.",
+        "Uses the saved customer pattern. Changes here apply to this draft only. Uses Claude and needs creative review.",
       ),
       async (data) => {
         await post(`/projects/${id}/script`, compact(data));
         await saveAndRefresh("A new script draft is ready for review.");
       },
-    ),
+    );
+  },
+  "script-pattern": async (id) => {
+    const pattern = await api(`/projects/${id}/script-pattern`);
+    const labels = {language: "Dialogue language", duration_seconds: "Runtime in seconds",
+      tone: "Creative tone", topic: "Topic", content_type: "Content type (ad, reel, testimonial)",
+      character_count: "Number of characters", location_description: "Location description"};
+    const fields = Object.entries(labels).map(([name, label]) => field(label, name, {
+      value: pattern[name] ?? "", required: ["language", "duration_seconds", "tone"].includes(name),
+      ...(["duration_seconds", "character_count"].includes(name) ? {type: "number",
+        min: name === "duration_seconds" ? 5 : 0, max: name === "duration_seconds" ? 600 : 100} : {})
+    })).join("");
+    showModal("Customer script pattern", form(fields +
+      `<label>Shoot setting<select aria-label="Shoot setting" name="shoot_setting"><option value="">No preference</option>${["indoor", "outdoor", "mixed"].map(v => `<option value="${v}" ${pattern.shoot_setting === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>` +
+      [ ["pattern_instructions", "Recurring story structure / pattern"],
+        ["customer_challenges", "Customer problems and challenges"],
+        ["agreement_notes", "Agreed deliverables and constraints"] ].map(([name, label]) =>
+        `<label>${label}<textarea name="${name}">${e(pattern[name] || "")}</textarea></label>`).join(""),
+      "Save customer pattern", "Applies to future drafts for all projects with the same client name (ignoring case and extra spaces). Existing script versions stay saved. Clear optional fields to remove a preference."),
+      async (data) => {
+        await api(`/projects/${id}/script-pattern`, {method: "PUT", body: JSON.stringify(compact(data))});
+        await saveAndRefresh("Customer pattern saved for future scripts.");
+      });
+  },
+  "import-script": (id) => showModal("Import a production script", form(
+    field("Production script JSON", "script_file", {type: "file"}), "Import script",
+    "Choose a structured production-script JSON file, including a downloaded script version. Saves a new version for the Resolve workflow."),
+    async (_data, formNode) => {
+      const file = formNode.elements.script_file.files[0];
+      if (!file || file.size > 1000000) throw new Error("Choose a JSON file smaller than 1 MB.");
+      let document;
+      try { document = JSON.parse(await file.text()); }
+      catch { throw new Error("The file must contain valid JSON."); }
+      await post(`/projects/${id}/scripts/import`, document.output || document);
+      await saveAndRefresh("Script imported as a new version.");
+    }),
   "download-script": async (id) =>
     downloadJSON(await api(`/projects/${id}/script`), "production-script.json"),
   match: async (id) => {

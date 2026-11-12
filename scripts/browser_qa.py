@@ -129,10 +129,34 @@ def main():
                 page.get_by_role("link", name="Download call sheet").click()
             assert info.value.suggested_filename == "call-sheet.pdf"
 
+            page.get_by_role("button", name="Customer pattern", exact=True).click()
+            dialog.get_by_label("Dialogue language", exact=True).fill("Hindi")
+            dialog.get_by_label("Topic", exact=True).fill("Salon launch")
+            dialog.get_by_label("Number of characters", exact=True).fill("2")
+            dialog.get_by_label("Shoot setting", exact=True).select_option("indoor")
+            dialog.get_by_label("Recurring story structure / pattern").fill("Problem, demo, CTA")
+            dialog.get_by_role("button", name="Save customer pattern", exact=True).click()
+            expect(dialog).not_to_be_visible()
             page.get_by_role("button", name="Generate script", exact=True).first.click()
+            expect(dialog.get_by_label("Dialogue language", exact=True)).to_have_value("Hindi")
             dialog.get_by_role("button", name="Generate draft", exact=True).click()
             expect(dialog).not_to_be_visible()
             expect(page.get_by_role("heading", name="A New Beginning")).to_be_visible()
+            page.get_by_role("button", name="Import script", exact=True).click()
+            dialog.get_by_label("Production script JSON", exact=True).set_input_files(
+                {
+                    "name": "script.json",
+                    "mimeType": "application/json",
+                    "buffer": sample_script().model_dump_json().encode(),
+                }
+            )
+            dialog.get_by_role("button", name="Import script", exact=True).click()
+            expect(dialog).not_to_be_visible()
+            expect(page.get_by_text("Draft v2", exact=False)).to_be_visible()
+            page.get_by_role("button", name="Customer pattern", exact=True).click()
+            expect(dialog.get_by_label("Topic", exact=True)).to_have_value("Salon launch")
+            expect(dialog.get_by_label("Number of characters", exact=True)).to_have_value("2")
+            dialog.get_by_role("button", name="Cancel", exact=True).click()
 
             page.get_by_role("link", name="Edit review", exact=True).click()
             page.get_by_role("button", name="+ Parse feedback", exact=True).click()

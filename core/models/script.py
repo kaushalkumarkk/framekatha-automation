@@ -8,6 +8,12 @@ from core.db import Base
 from core.models.leads import JSON_VALUE, utcnow
 
 
+class ClientScriptPattern(Base):
+    __tablename__ = "client_script_patterns"
+    client_key: Mapped[str] = mapped_column(String(300), primary_key=True)
+    settings: Mapped[dict] = mapped_column(JSON_VALUE)
+
+
 class ScriptVersion(Base):
     __tablename__ = "script_versions"
     __table_args__ = (UniqueConstraint("project_id", "version", name="uq_project_script_version"),)
