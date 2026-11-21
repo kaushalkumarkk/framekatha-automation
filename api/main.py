@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from api.auth import require_api_key
+from api.routes.agency import router as agency_router
 from api.routes.feedback import router as feedback_router
 from api.routes.invoices import router as invoices_router
 from api.routes.leads import router
@@ -41,6 +42,7 @@ app.include_router(scripts_router)
 app.include_router(feedback_router)
 app.include_router(invoices_router)
 app.include_router(workspace_router)
+app.include_router(agency_router)
 app.mount(
     "/assets", StaticFiles(directory=str(files("frontend").joinpath("assets"))), name="assets"
 )

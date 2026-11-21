@@ -1,5 +1,9 @@
 # n8n HTTP contracts
 
+The newer [agency workflow contracts](blueprint-implementation.md#integration-contracts)
+cover onboarding, lead intelligence, follow-ups, creative approvals, production,
+campaign reports, expenses and business analysis alongside the endpoints below.
+
 Use `http://127.0.0.1:8000` for local n8n, or your securely reachable deployment for a
 hosted instance. Configure n8n Header Auth credentials with `X-API-Key`, store the key
 in n8n's credential store, and send `Content-Type: application/json`. All endpoints

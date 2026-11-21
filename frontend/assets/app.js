@@ -1,4 +1,5 @@
 import { api, post, patch, escape as e, money, date, human } from "./api.js";
+import { agencyTools } from "./agency.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const icons = {
@@ -29,6 +30,7 @@ const nav = [
   ["discovery", "Discovery"],
   ["edits", "Edit review"],
   ["invoices", "Invoices"],
+  ["agency", "Agency operations"],
   ["settings", "Workspace settings"],
 ];
 const content = $("#content");
@@ -625,6 +627,7 @@ async function navigate() {
       discovery,
       edits,
       invoices,
+      agency: () => agency.page(id),
       settings,
     };
     const html = await (renderers[view] || overview)();
@@ -667,6 +670,7 @@ document.addEventListener("change", async (event) => {
       "talent" + (event.target.value ? "?database=" + event.target.value : ""),
     );
   else if (type === "edit-project") go("edits?project=" + event.target.value);
+  else if (type === "agency-project") go("agency/" + event.target.value);
 });
 
 async function projectOptions() {
@@ -986,6 +990,8 @@ const actions = {
         "beforeend",
         `<div class="detail-actions">${button("Record an opt-out", "opt-out", id, "danger small")}</div>`,
       );
+    $("#modal-body").insertAdjacentHTML("beforeend",
+      `<div class="detail-actions">${button("Sales profile & follow-ups", "agency-sales", id)}</div>`);
   },
   "opt-out": (id) =>
     showModal(
@@ -1356,6 +1362,10 @@ const actions = {
       },
     ),
 };
+
+const agency = agencyTools({heading, panel, button, field, area, select, option,
+  form, row, showModal, saveAndRefresh, downloadJSON, go});
+Object.assign(actions, agency.actions);
 
 function leadPage(delta) {
   const p = new URLSearchParams(location.hash.split("?")[1] || "");

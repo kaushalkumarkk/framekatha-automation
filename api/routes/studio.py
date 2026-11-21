@@ -15,7 +15,15 @@ from api.schemas.studio import (
 )
 from core.config import Settings, get_settings
 from core.db import get_db
-from core.models import Negotiation, Project, Talent, TalentSelection
+from core.models import (
+    CampaignMetric,
+    Invoice,
+    Negotiation,
+    Project,
+    ProjectExpense,
+    Talent,
+    TalentSelection,
+)
 from core.models.leads import utcnow
 from talent.callsheet import call_sheet_pdf
 from talent.service import entity, import_talent, match_talent, negotiate
@@ -59,6 +67,13 @@ def update_project(project_id: UUID, payload: ProjectInput, db: DB):
     if submitted and any(getattr(project, name) != getattr(payload, name) for name in sensitive):
         raise HTTPException(
             409, "Submitted casting fixes the client, fee range, currency and shoot date"
+        )
+    if payload.currency != project.currency and any(
+        db.scalar(select(model.id).where(model.project_id == project_id).limit(1))
+        for model in (Invoice, ProjectExpense, CampaignMetric)
+    ):
+        raise HTTPException(
+            409, "Currency is fixed after invoices, expenses or metrics are recorded"
         )
     fees = db.scalars(
         select(TalentSelection.proposed_fee).where(

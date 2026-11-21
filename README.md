@@ -12,7 +12,7 @@ News radar requires `NEWS_API_KEY` and `ANTHROPIC_API_KEY` and sends article exc
 to Claude for classification. No scraping is run automatically on startup.
 
 Standalone studio operations app with a FastAPI backend and a responsive browser
-dashboard. **All six phases are implemented and have automated tests**:
+dashboard. The original six phases are implemented and have automated tests:
 
 | Phase | Implementation |
 | --- | --- |
@@ -22,6 +22,14 @@ dashboard. **All six phases are implemented and have automated tests**:
 | 4 | Validated, versioned Claude shooting scripts, screenplay, edit direction and BGM suggestions |
 | 5 | Separate Resolve workstation package: ingestion, Whisper, rough assemblies and review-only edit feedback |
 | 6 | Invoice milestones, project pause flags, draft suspension notices and human resumption |
+
+The 2026–2027 blueprint extension adds **Agency operations**: lead intelligence,
+sales follow-ups and reviewed outreach drafts, client onboarding/brand knowledge,
+versioned proposals/strategies/calendars/reports, two-stage creative approval,
+production/QC tracking, campaign metrics, expenses and profitability reporting.
+Run `alembic upgrade head` before restarting an existing installation.
+See [blueprint coverage and remaining work](docs/blueprint-implementation.md)
+for setup, API contracts and external integration boundaries.
 
 The app starts empty: no sample records or fake provider outputs are inserted.
 See [workflow setup and limits](docs/workflows.md), [n8n contracts](docs/n8n.md), and
@@ -199,8 +207,8 @@ contacts, or geography are missing or wrong. It may need human correction. Ambig
 inputs create no new lead, and exact contact conflicts never silently combine masters.
 
 Statuses: `new`, `qualified`, `contacted`, `won`, `lost`, `archived`. There is no implicit
-status change during ingestion. `outreach_logs` currently audits status changes and
-opt-outs; provider delivery ingestion and messaging workflows belong to later work.
+status change during ingestion. `outreach_logs` audits status changes, opt-outs,
+sales events and reviewed outreach drafts; delivery integrations remain external.
 
 ## Background jobs, retries, and review
 

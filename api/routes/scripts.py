@@ -10,7 +10,7 @@ from ai.client import generate_json
 from ai.schemas import ScriptDocument, ScriptPattern, ScriptRequest
 from api.auth import require_api_key
 from core.db import get_db
-from core.models import ClientScriptPattern, Project, ScriptVersion
+from core.models import ClientProfile, ClientScriptPattern, Project, ProjectClient, ScriptVersion
 from talent.service import entity
 
 router = APIRouter(tags=["scripts"], dependencies=[Depends(require_api_key)])
@@ -81,6 +81,9 @@ def create_script(project_id: UUID, payload: ScriptRequest, db: DB):
     brief.update(payload.model_dump(exclude_unset=True))
     brief["requirement"] = payload.requirement or project.requirement
     brief["project_name"] = project.name
+    link = db.get(ProjectClient, project_id)
+    if link:
+        brief["brand_knowledge"] = db.get(ClientProfile, link.client_id).onboarding
     result = generate_json(
         files("ai").joinpath("prompts/script.v1.txt").read_text(),
         brief,

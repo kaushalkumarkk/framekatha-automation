@@ -1535,3 +1535,8 @@ input[type="checkbox"] {
     transition: none !important;
   }
 }
+/* Agency workflow controls use the existing studio palette and spacing. */
+.agency-json { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.agency-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 18px 0; }
+.agency-checks label { display: flex; align-items: center; gap: 8px; }
+.agency-checks input { width: auto; }
