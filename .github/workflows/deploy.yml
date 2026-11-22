@@ -1,0 +1,77 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_ENV"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}
+
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${{ secrets.VPS_PORT || 22 }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Copy deploy files
+        run: |
+          scp -i ~/.ssh/id_deploy -P "${{ secrets.VPS_PORT || 22 }}" \
+            deploy/docker-compose.yml deploy/Caddyfile \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/framekatha/"
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${{ secrets.VPS_PORT || 22 }}" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -se <<REMOTE
+          set -euo pipefail
+          cd /opt/framekatha
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          export IMAGE="${IMAGE}"
+          sed -i '/^IMAGE=/d' .env && echo "IMAGE=${IMAGE}" >> .env
+          docker compose pull web worker
+          docker compose up -d db redis
+          docker compose run --rm web alembic upgrade head
+          docker compose up -d --remove-orphans
+          docker image prune -f
+          docker logout ghcr.io
+          REMOTE
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 12); do
+            curl -fsS "https://${{ secrets.DOMAIN }}/health" && exit 0
+            sleep 5
+          done
+          echo "Health check failed" >&2; exit 1
